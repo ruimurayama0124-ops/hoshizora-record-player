@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#050914">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>星空レコードプレーヤー</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 10%,#193c72,#070d1c 42%,#02040b);color:#fff;font-family:system-ui,sans-serif}
+.app{width:min(430px,100%);min-height:100vh;margin:auto;padding:24px 20px 28px}
+h1{text-align:center;font-size:24px;margin:5px 0}.sub{text-align:center;color:#8fcaff;font-size:12px;margin-bottom:22px}
+.turntable{position:relative;width:290px;height:290px;margin:0 auto 22px}
+.platter{position:absolute;inset:0;border-radius:50%;background:repeating-radial-gradient(circle,#111 0,#111 2px,#1b1b1b 3px,#080808 5px);box-shadow:0 0 35px #318dff55, inset 0 0 25px #000}
+.platter.spin{animation:spin 3s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#cover{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;display:none}.label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,#75d7ff 0,#315cff 50%,#10152e 52%);display:flex;align-items:center;justify-content:center;font-size:31px;box-shadow:0 0 20px #45bfff88}
+.hole{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:9px;height:9px;background:#ddd;border-radius:50%}
+.arm{position:absolute;right:-7px;top:20px;width:135px;height:12px;background:#b9c7dc;border-radius:8px;transform:rotate(25deg);transform-origin:right center;box-shadow:0 0 8px #8ab9ff}
+.needle{position:absolute;right:3px;top:68px;width:16px;height:22px;background:#5c78ff;transform:rotate(25deg);border-radius:4px}
+.now{text-align:center;font-weight:700;font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.artist{text-align:center;color:#9aaaca;font-size:13px;margin:4px 0 12px}
+input[type=range]{width:100%;accent-color:#55c9ff}.time{display:flex;justify-content:space-between;color:#8290aa;font-size:11px}
+.controls{display:flex;justify-content:center;gap:20px;align-items:center;margin:17px 0}button{border:0;color:#fff;background:#172441;border-radius:50%;width:48px;height:48px;font-size:18px}#play{width:68px;height:68px;background:linear-gradient(135deg,#54d2ff,#3655ff);font-size:24px}
+.file{display:block;text-align:center;padding:14px;border:1px solid #34527d;background:#0b1730;border-radius:15px;color:#bfe1ff}input[type=file]{display:none}
+.status{text-align:center;color:#7284a5;font-size:11px;margin-top:12px}
+</style>
+</head>
+<body>
+<main class="app">
+<h1>🌌 星空レコードプレーヤー</h1><div class="sub">NEON VINYL PLAYER</div>
+<div class="turntable">
+<div id="record" class="platter"><img id="cover" alt="ジャケット画像"><div class="label" id="label">✦</div><div class="hole"></div></div>
+<div class="arm"></div><div class="needle"></div>
+</div>
+<div id="title" class="now">曲を選んでね</div>
+<div id="artist" class="artist">端末の音楽ファイルを再生できます</div>
+<input id="seek" type="range" min="0" max="100" value="0">
+<div class="time"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+<div class="controls"><button id="prev">⏮</button><button id="play">▶</button><button id="next">⏭</button></div>
+<label class="file">🎵 音楽ファイルを選ぶ<input id="files" type="file" accept="audio/*" multiple></label>
+<label class="file" style="margin-top:9px">🖼️ レコードの画像を選ぶ<input id="image" type="file" accept="image/*"></label>
+<div class="status">🔒 バックグラウンド再生・ロック画面操作に対応（端末・ブラウザによって動作が異なります）</div>
+</main>
+<script>
+const audio=new Audio();audio.preload="metadata";audio.setAttribute("playsinline","");
+let songs=[],index=0;
+const $=id=>document.getElementById(id),fmt=s=>{s=Math.floor(s||0);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0")};
+function load(i,auto=false){if(!songs.length)return;index=(i+songs.length)%songs.length;audio.src=songs[index].url;$("title").textContent=songs[index].name;$("artist").textContent="端末の音楽";updateMediaSession();if(auto)audio.play();}
+$("image").onchange=e=>{const f=e.target.files[0];if(!f)return;$("cover").src=URL.createObjectURL(f);$("cover").style.display="block";$("label").style.display="none"};
+$("files").onchange=e=>{songs=[...e.target.files].map(f=>({name:f.name,url:URL.createObjectURL(f)}));load(0,false)};
+$("play").onclick=()=>{if(!audio.src)return;if(audio.paused)audio.play();else audio.pause()};
+audio.onplay=()=>{$("play").textContent="⏸";$("record").classList.add("spin");if("mediaSession" in navigator)navigator.mediaSession.playbackState="playing"};
+audio.onpause=()=>{$("play").textContent="▶";$("record").classList.remove("spin");if("mediaSession" in navigator)navigator.mediaSession.playbackState="paused"};
+audio.ontimeupdate=()=>{$("seek").value=audio.duration?audio.currentTime/audio.duration*100:0;$("cur").textContent=fmt(audio.currentTime);$("dur").textContent=fmt(audio.duration)};
+$("seek").oninput=()=>{if(audio.duration)audio.currentTime=audio.duration*$("seek").value/100};
+$("next").onclick=()=>load(index+1,true);$("prev").onclick=()=>load(index-1,true);audio.onended=()=>load(index+1,true);
+
+// バックグラウンド再生・ロック画面メディア操作対応（対応ブラウザのみ）
+function updateMediaSession(){
+  if(!("mediaSession" in navigator) || !songs.length) return;
+  const song=songs[index];
+  navigator.mediaSession.metadata=new MediaMetadata({
+    title:song.name,
+    artist:"端末の音楽",
+    album:"星空レコードプレーヤー",
+    artwork:$("cover").src ? [{src:$("cover").src,sizes:"512x512",type:"image/*"}] : []
+  });
+}
+if("mediaSession" in navigator){
+  navigator.mediaSession.setActionHandler("play",()=>audio.play());
+  navigator.mediaSession.setActionHandler("pause",()=>audio.pause());
+  navigator.mediaSession.setActionHandler("previoustrack",()=>load(index-1,true));
+  navigator.mediaSession.setActionHandler("nexttrack",()=>load(index+1,true));
+  navigator.mediaSession.setActionHandler("seekbackward",()=>{audio.currentTime=Math.max(0,audio.currentTime-10)});
+  navigator.mediaSession.setActionHandler("seekforward",()=>{audio.currentTime=Math.min(audio.duration||audio.currentTime,audio.currentTime+10)});
+}
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
